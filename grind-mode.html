@@ -1,0 +1,1267 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GRIND MODE — Real-Time Unlock</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;500;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#04040d;--glass:rgba(255,255,255,0.05);--border:rgba(255,255,255,0.08);
+  --neon:#e8ff47;--neon2:#00f5ff;--red:#ff2d55;--green:#00ff88;--orange:#ff9500;
+  --purple:#bf5af2;--blue:#0a84ff;--pink:#ff6b9d;--text:#f0f0ff;--muted:#5a5a7a;
+  --locked:#1a1a2e;--locked-b:rgba(255,255,255,0.05);
+  --font-d:'Bebas Neue',sans-serif;--font-t:'Orbitron',monospace;--font-b:'Rajdhani',sans-serif;
+}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--font-b);min-height:100vh;overflow-x:hidden;cursor:none}
+#cur,#cur2{position:fixed;border-radius:50%;pointer-events:none;z-index:9999;transform:translate(-50%,-50%)}
+#cur{width:10px;height:10px;background:var(--neon);mix-blend-mode:difference;transition:width .2s,height .2s}
+#cur2{width:28px;height:28px;border:1px solid var(--neon);opacity:.5;transition:all .12s ease}
+.bg-grid{position:fixed;inset:0;z-index:0;pointer-events:none;
+  background-image:linear-gradient(rgba(232,255,71,.02) 1px,transparent 1px),linear-gradient(90deg,rgba(232,255,71,.02) 1px,transparent 1px);
+  background-size:50px 50px;animation:gm 25s linear infinite}
+@keyframes gm{to{background-position:50px 50px}}
+.orb{position:fixed;border-radius:50%;filter:blur(100px);pointer-events:none;z-index:0;animation:orbf 10s ease-in-out infinite}
+.o1{width:500px;height:500px;background:rgba(232,255,71,.05);top:-150px;right:-150px}
+.o2{width:400px;height:400px;background:rgba(0,245,255,.04);bottom:-100px;left:-100px;animation-delay:-4s}
+@keyframes orbf{0%,100%{transform:translate(0,0)}50%{transform:translate(25px,-25px)}}
+canvas#ptc{position:fixed;inset:0;z-index:0;pointer-events:none}
+
+/* PAGES */
+.page{position:fixed;inset:0;z-index:10;overflow-y:auto;opacity:0;pointer-events:none;transition:opacity .35s,transform .35s;transform:translateX(30px)}
+.page.active{opacity:1;pointer-events:all;transform:translateX(0)}
+.page.exit{opacity:0;transform:translateX(-30px)}
+.inner{max-width:760px;margin:0 auto;padding:1.2rem 1rem 4rem}
+
+/* CLOCK HERO */
+.clock-wrap{background:linear-gradient(135deg,rgba(232,255,71,.07),rgba(0,245,255,.04));
+  border:1px solid rgba(232,255,71,.25);border-radius:16px;padding:1.4rem 1.6rem;margin-bottom:1.3rem;
+  position:relative;overflow:hidden}
+.clock-wrap::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--neon),transparent)}
+.clock-top{display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap}
+.clock-now{font-family:var(--font-d);font-size:3.2rem;letter-spacing:.06em;line-height:1;color:var(--neon);text-shadow:0 0 30px rgba(232,255,71,.4)}
+.clock-date{font-family:var(--font-t);font-size:.5rem;color:var(--muted);letter-spacing:.15em;margin-top:4px}
+.clock-day-badge{font-family:var(--font-d);font-size:1.3rem;letter-spacing:.08em;padding:6px 14px;border-radius:8px;border:1px solid;text-align:right}
+.clock-bottom{margin-top:1rem;display:flex;gap:1.5rem;flex-wrap:wrap}
+.clk-stat{text-align:center}
+.clk-val{font-family:var(--font-d);font-size:1.6rem;letter-spacing:.05em}
+.clk-lbl{font-family:var(--font-t);font-size:.42rem;color:var(--muted);letter-spacing:.12em}
+
+/* NEXT UNLOCK */
+.next-unlock{background:rgba(0,245,255,.06);border:1px solid rgba(0,245,255,.2);border-radius:10px;
+  padding:.8rem 1rem;margin-bottom:1.2rem;display:flex;align-items:center;gap:1rem}
+.nu-icon{font-size:1.5rem;flex-shrink:0}
+.nu-body{flex:1}
+.nu-label{font-family:var(--font-t);font-size:.48rem;color:var(--muted);letter-spacing:.15em}
+.nu-name{font-family:var(--font-d);font-size:1.1rem;letter-spacing:.05em;color:var(--neon2)}
+.nu-countdown{font-family:var(--font-t);font-size:.65rem;color:var(--orange);letter-spacing:.08em;margin-top:2px}
+.nu-hide{display:none}
+
+/* WEEK CARD */
+.wk-card{background:linear-gradient(135deg,rgba(232,255,71,.06),rgba(0,245,255,.03));
+  border:1px solid rgba(232,255,71,.2);border-radius:14px;padding:1.1rem 1.3rem;margin-bottom:1.2rem;position:relative;overflow:hidden}
+.wk-card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--neon),transparent)}
+.wk-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:.6rem}
+.wk-num{font-family:var(--font-d);font-size:2.8rem;color:var(--neon);text-shadow:0 0 20px rgba(232,255,71,.4)}
+.wk-rank{font-family:var(--font-t);font-size:.6rem;color:var(--neon2);letter-spacing:.08em;text-align:right}
+.prog{background:rgba(255,255,255,.07);border-radius:99px;height:7px;overflow:hidden}
+.prog-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,var(--neon),var(--neon2));
+  transition:width 1s cubic-bezier(.4,0,.2,1);box-shadow:0 0 10px rgba(232,255,71,.5);position:relative}
+.prog-fill::after{content:'';position:absolute;right:0;top:50%;width:10px;height:10px;border-radius:50%;background:#fff;transform:translate(50%,-50%);box-shadow:0 0 6px var(--neon)}
+.prog-pct{font-family:var(--font-t);font-size:.55rem;color:var(--neon);text-align:right;margin-top:3px}
+
+/* TABS */
+.tab-row{display:flex;gap:6px;margin-bottom:1rem;flex-wrap:wrap}
+.tab{font-family:var(--font-t);font-size:.5rem;letter-spacing:.1em;padding:5px 12px;border-radius:6px;
+  border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:all .2s}
+.tab.active{background:rgba(232,255,71,.1);border-color:rgba(232,255,71,.4);color:var(--neon)}
+
+/* DAY GRID */
+.day-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(145px,1fr));gap:9px;margin-bottom:1.2rem}
+.dc{background:var(--glass);border:1px solid var(--border);border-radius:12px;padding:.9rem;cursor:pointer;
+  transition:all .3s;position:relative;overflow:hidden;animation:fsu .4s ease both;text-align:left}
+.dc::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,var(--c,#fff)09,transparent);opacity:0;transition:opacity .3s}
+.dc:hover{transform:translateY(-3px);border-color:var(--c);box-shadow:0 8px 25px rgba(0,0,0,.4),0 0 0 1px var(--c)33}
+.dc:hover::before{opacity:1}
+.dc.done{border-color:var(--green);background:rgba(0,255,136,.06)}
+.dc.done::after{content:'✓';position:absolute;top:7px;right:9px;font-size:.85rem;color:var(--green);text-shadow:0 0 8px var(--green)}
+.dc.today-active{border-color:var(--neon)!important;box-shadow:0 0 15px rgba(232,255,71,.25)!important}
+.dc.today-active::after{content:'▶';position:absolute;top:7px;right:9px;font-size:.75rem;color:var(--neon);animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.dc-lbl{font-family:var(--font-d);font-size:1.9rem;letter-spacing:.05em;line-height:1;margin-bottom:3px}
+.dc-focus{font-family:var(--font-t);font-size:.44rem;color:var(--muted);letter-spacing:.07em;line-height:1.5;margin-bottom:7px}
+.dc-pb{background:rgba(255,255,255,.07);height:3px;border-radius:99px;overflow:hidden;margin-bottom:5px}
+.dc-pf{height:100%;border-radius:99px;transition:width .6s}
+.dc-info{font-family:var(--font-t);font-size:.5rem;display:flex;justify-content:space-between}
+
+/* SCORE CTA */
+.score-cta{width:100%;padding:.9rem;border-radius:11px;cursor:pointer;background:transparent;
+  border:1px solid rgba(232,255,71,.4);color:var(--neon);font-family:var(--font-d);font-size:1.1rem;
+  letter-spacing:.15em;transition:all .3s;position:relative;overflow:hidden}
+.score-cta::before{content:'';position:absolute;inset:0;background:var(--neon);transform:scaleX(0);transform-origin:left;transition:transform .3s;z-index:0}
+.score-cta:hover::before{transform:scaleX(1)}
+.score-cta:hover{color:#000;box-shadow:0 0 25px rgba(232,255,71,.4)}
+.score-cta span{position:relative;z-index:1}
+
+/* BACK */
+.back{display:inline-flex;align-items:center;gap:7px;background:var(--glass);border:1px solid var(--border);
+  color:var(--muted);font-family:var(--font-t);font-size:.58rem;letter-spacing:.1em;padding:7px 14px;
+  border-radius:7px;cursor:pointer;margin-bottom:1.3rem;transition:all .2s}
+.back:hover{color:var(--text);border-color:rgba(255,255,255,.2)}
+.back-arr{transition:transform .2s}.back:hover .back-arr{transform:translateX(-4px)}
+
+/* DAY HERO */
+.day-hero{margin-bottom:1.3rem}
+.day-em{font-size:2.5rem;display:block;margin-bottom:.4rem;animation:bIn .4s ease}
+@keyframes bIn{from{transform:scale(.3);opacity:0}60%{transform:scale(1.1)}to{transform:scale(1);opacity:1}}
+.day-ttl{font-family:var(--font-d);font-size:clamp(1.8rem,7vw,3rem);line-height:1;letter-spacing:.05em}
+.day-ftag{display:inline-block;font-family:var(--font-t);font-size:.48rem;letter-spacing:.12em;padding:3px 10px;border-radius:4px;margin-top:7px;border:1px solid}
+.day-pbwrap{margin-top:.8rem}
+.day-pb{background:rgba(255,255,255,.07);height:5px;border-radius:99px;overflow:hidden}
+.day-pf{height:100%;border-radius:99px;transition:width .8s cubic-bezier(.4,0,.2,1)}
+.day-pinfo{display:flex;justify-content:space-between;margin-top:5px}
+.day-pinfo span{font-family:var(--font-t);font-size:.55rem;color:var(--muted)}
+.day-pinfo strong{font-family:var(--font-t);font-size:.55rem;color:var(--neon)}
+
+/* REAL-TIME TIMELINE */
+.timeline-head{display:flex;align-items:center;gap:10px;margin:.8rem 0 .5rem}
+.tl-line{flex:1;height:1px;background:var(--border)}
+.tl-lbl{font-family:var(--font-t);font-size:.48rem;letter-spacing:.18em;color:var(--neon2);padding:3px 8px;border:1px solid rgba(0,245,255,.2);border-radius:4px;white-space:nowrap}
+
+/* ITEM CARD (timeline) */
+.tl-item{position:relative;display:flex;gap:0;margin-bottom:8px;animation:cardIn .4s ease both}
+@keyframes cardIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+
+/* TIME SPINE */
+.tl-spine{display:flex;flex-direction:column;align-items:center;flex-shrink:0;width:50px;padding-top:6px}
+.tl-time{font-family:var(--font-t);font-size:.44rem;color:var(--muted);letter-spacing:.05em;text-align:center;line-height:1.3}
+.tl-dot{width:10px;height:10px;border-radius:50%;border:2px solid;margin:4px 0;flex-shrink:0;transition:all .4s}
+.tl-tail{flex:1;width:1px;background:var(--border);min-height:20px}
+
+/* CARD STATES */
+.tl-card{flex:1;border-radius:12px;overflow:hidden;transition:all .4s;border:1px solid;position:relative}
+
+/* LOCKED */
+.tl-card.locked{background:#0d0d1a;border-color:rgba(255,255,255,.06);opacity:.55;filter:grayscale(.3)}
+.tl-card.locked .tl-dot{border-color:var(--muted);background:transparent}
+.tl-card.locked .ic-name{color:var(--muted)}
+
+/* UPCOMING (unlocks soon <30min) */
+.tl-card.upcoming{background:rgba(245,158,11,.05);border-color:rgba(245,158,11,.3);animation:upcoming-glow 2s ease-in-out infinite}
+@keyframes upcoming-glow{0%,100%{box-shadow:0 0 0 0 rgba(245,158,11,.15)}50%{box-shadow:0 0 12px 2px rgba(245,158,11,.25)}}
+.tl-card.upcoming .tl-dot{border-color:var(--orange);background:rgba(245,158,11,.3);animation:pulse-dot 1s ease-in-out infinite}
+@keyframes pulse-dot{0%,100%{box-shadow:0 0 0 0 rgba(245,158,11,.4)}50%{box-shadow:0 0 0 6px rgba(245,158,11,0)}}
+
+/* ACTIVE */
+.tl-card.active-slot{background:rgba(232,255,71,.06);border-color:rgba(232,255,71,.4);
+  box-shadow:0 0 20px rgba(232,255,71,.12),inset 0 0 30px rgba(232,255,71,.03)}
+.tl-card.active-slot .tl-dot{border-color:var(--neon);background:var(--neon);box-shadow:0 0 12px var(--neon);animation:pulse-dot-g 1s ease-in-out infinite}
+@keyframes pulse-dot-g{0%,100%{box-shadow:0 0 0 0 rgba(232,255,71,.6)}50%{box-shadow:0 0 0 8px rgba(232,255,71,0)}}
+
+/* MISSED */
+.tl-card.missed{background:rgba(255,45,85,.04);border-color:rgba(255,45,85,.2);opacity:.7}
+.tl-card.missed .tl-dot{border-color:var(--red);background:rgba(255,45,85,.3)}
+
+/* DONE */
+.tl-card.done-card{background:rgba(0,255,136,.04);border-color:rgba(0,255,136,.25)}
+.tl-card.done-card .tl-dot{border-color:var(--green);background:var(--green);box-shadow:0 0 8px var(--green)}
+
+/* CARD INNER */
+.tl-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--c,var(--neon))}
+.tl-body{padding:.85rem .9rem .65rem}
+.ic-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:5px}
+.ic-left{flex:1}
+.ic-name{font-family:var(--font-d);font-size:1.15rem;letter-spacing:.04em;display:flex;align-items:center;gap:6px;flex-wrap:wrap;transition:color .4s}
+.ic-name.dn{color:var(--green)!important;text-shadow:0 0 12px rgba(0,255,136,.3)}
+.tag{display:inline-block;font-family:var(--font-t);font-size:.45rem;padding:2px 6px;border-radius:3px;letter-spacing:.06em;font-weight:700}
+.t-type{background:rgba(255,255,255,.07);color:var(--muted)}
+.t-pts{background:rgba(245,158,11,.12);color:#f59e0b}
+.t-dur{background:rgba(0,245,255,.1);color:var(--neon2)}
+.ic-tip{font-family:var(--font-b);font-size:.78rem;color:var(--muted);margin-top:3px;line-height:1.5}
+.ic-tip b{color:var(--neon2)}
+
+/* STATUS BADGE */
+.status-badge{display:inline-flex;align-items:center;gap:4px;font-family:var(--font-t);font-size:.44rem;
+  letter-spacing:.1em;padding:3px 8px;border-radius:4px;border:1px solid;margin-top:5px;transition:all .4s}
+.sb-locked{color:var(--muted);border-color:rgba(255,255,255,.1);background:rgba(255,255,255,.03)}
+.sb-upcoming{color:var(--orange);border-color:rgba(245,158,11,.3);background:rgba(245,158,11,.08)}
+.sb-active{color:var(--neon);border-color:rgba(232,255,71,.4);background:rgba(232,255,71,.08);animation:badge-flash 1.5s ease-in-out infinite}
+@keyframes badge-flash{0%,100%{opacity:1}50%{opacity:.6}}
+.sb-missed{color:var(--red);border-color:rgba(255,45,85,.3);background:rgba(255,45,85,.06)}
+.sb-done{color:var(--green);border-color:rgba(0,255,136,.3);background:rgba(0,255,136,.06)}
+
+/* COUNTDOWN IN CARD */
+.card-countdown{font-family:var(--font-t);font-size:.55rem;color:var(--orange);letter-spacing:.06em;margin-top:3px}
+
+/* LOCKED OVERLAY */
+.locked-overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  background:rgba(4,4,13,.6);backdrop-filter:blur(2px);z-index:5;border-radius:12px;flex-direction:column;gap:4px;pointer-events:none;transition:opacity .4s}
+.locked-overlay.hidden{opacity:0;pointer-events:none}
+.lo-icon{font-size:1.8rem;opacity:.4}
+.lo-time{font-family:var(--font-t);font-size:.5rem;color:var(--muted);letter-spacing:.1em}
+.lo-cd{font-family:var(--font-t);font-size:.65rem;color:var(--orange);margin-top:2px}
+
+/* CHECK BTN */
+.chk{width:34px;height:34px;border-radius:50%;border:2px solid rgba(255,255,255,.18);
+  background:transparent;cursor:pointer;flex-shrink:0;display:flex;align-items:center;justify-content:center;
+  font-size:.9rem;transition:all .3s;position:relative;overflow:hidden}
+.chk::before{content:'';position:absolute;inset:0;border-radius:50%;background:var(--green);transform:scale(0);transition:transform .3s cubic-bezier(.4,0,.2,1)}
+.chk.on{border-color:var(--green);box-shadow:0 0 12px rgba(0,255,136,.45)}
+.chk.on::before{transform:scale(1)}
+.chk-ico{position:relative;z-index:1;color:#000;opacity:0;transition:opacity .15s .08s;font-weight:900}
+.chk.on .chk-ico{opacity:1}
+.chk:disabled,.chk.locked-btn{opacity:.35;cursor:not-allowed;border-color:var(--muted)}
+
+/* TIMER ROW */
+.tm-row{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:.55rem .9rem;
+  border-top:1px solid var(--border);background:rgba(0,0,0,.18)}
+.tm-disp{font-family:var(--font-t);font-size:1rem;letter-spacing:.12em;color:var(--neon2);
+  background:rgba(0,245,255,.06);padding:4px 11px;border-radius:6px;border:1px solid rgba(0,245,255,.15);
+  min-width:75px;text-align:center;transition:all .25s}
+.tm-disp.run{color:var(--neon);background:rgba(232,255,71,.07);border-color:rgba(232,255,71,.3);animation:tp 1s ease-in-out infinite}
+@keyframes tp{0%,100%{box-shadow:0 0 0 0 rgba(232,255,71,.3)}50%{box-shadow:0 0 0 5px rgba(232,255,71,0)}}
+.tm-btn{padding:4px 12px;border-radius:5px;border:1px solid;cursor:pointer;font-family:var(--font-t);font-size:.52rem;letter-spacing:.07em;transition:all .2s}
+.tm-btn:disabled{opacity:.3;cursor:not-allowed}
+.tb-go{background:rgba(0,255,136,.09);border-color:rgba(0,255,136,.3);color:var(--green)}
+.tb-go:hover:not(:disabled){background:rgba(0,255,136,.18)}
+.tb-stop{background:rgba(255,45,85,.09);border-color:rgba(255,45,85,.3);color:var(--red)}
+.tb-stop:hover{background:rgba(255,45,85,.18)}
+.tb-rst{background:transparent;border-color:rgba(255,255,255,.1);color:var(--muted)}
+.tb-rst:hover{border-color:rgba(255,255,255,.2);color:var(--text)}
+.yt-a{margin-left:auto;display:flex;align-items:center;gap:5px;padding:5px 12px;border-radius:5px;
+  border:1px solid rgba(255,45,85,.3);background:rgba(255,45,85,.08);color:#ff6b6b;
+  font-family:var(--font-t);font-size:.52rem;letter-spacing:.07em;cursor:pointer;text-decoration:none;transition:all .2s}
+.yt-a:hover{background:rgba(255,45,85,.2);box-shadow:0 0 10px rgba(255,45,85,.3)}
+
+/* SECTION HEADERS */
+.sec-head{display:flex;align-items:center;gap:10px;margin:1.2rem 0 .7rem}
+.sec-line{flex:1;height:1px;background:var(--border)}
+.sec-lbl{font-family:var(--font-t);font-size:.52rem;letter-spacing:.18em;padding:4px 10px;border-radius:4px;white-space:nowrap}
+
+/* UNLOCK TOAST */
+.toast{position:fixed;top:1.5rem;right:1.5rem;z-index:9998;display:flex;align-items:center;gap:.8rem;
+  background:#0a0a18;border:1px solid rgba(232,255,71,.5);border-radius:12px;padding:.9rem 1.2rem;
+  font-family:var(--font-t);font-size:.55rem;letter-spacing:.1em;transform:translateX(120%);transition:transform .4s cubic-bezier(.4,0,.2,1);
+  box-shadow:0 8px 32px rgba(0,0,0,.5),0 0 0 1px rgba(232,255,71,.15);max-width:280px}
+.toast.show{transform:translateX(0)}
+.toast-icon{font-size:1.5rem;flex-shrink:0}
+.toast-body{flex:1}
+.toast-title{color:var(--neon);margin-bottom:2px}
+.toast-msg{color:var(--muted);font-size:.48rem;line-height:1.5}
+
+/* COMPLETE */
+.cpl-banner{margin-top:1.3rem;padding:1.3rem;border-radius:12px;text-align:center;
+  background:linear-gradient(135deg,rgba(0,255,136,.09),rgba(232,255,71,.06));
+  border:1px solid rgba(0,255,136,.3);display:none}
+.cpl-banner.show{display:block;animation:bIn .5s ease}
+.cpl-title{font-family:var(--font-d);font-size:1.8rem;color:var(--green);letter-spacing:.1em;text-shadow:0 0 15px rgba(0,255,136,.4)}
+
+/* SCORE PAGE */
+.sc-hero{text-align:center;padding:1.8rem 0 1.3rem}
+.sc-big{font-family:var(--font-d);font-size:4.5rem;line-height:1;
+  background:linear-gradient(135deg,var(--neon),var(--neon2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:bIn .6s ease}
+.sc-lbl{font-family:var(--font-t);font-size:.55rem;color:var(--muted);letter-spacing:.18em;margin-top:4px}
+.rank-badge{display:inline-block;margin-top:.9rem;font-family:var(--font-d);font-size:1.4rem;letter-spacing:.1em;
+  padding:7px 22px;border-radius:7px;border:1px solid var(--neon);color:var(--neon);
+  background:rgba(232,255,71,.06);animation:rg 2s ease-in-out infinite}
+@keyframes rg{0%,100%{box-shadow:0 0 12px rgba(232,255,71,.2)}50%{box-shadow:0 0 25px rgba(232,255,71,.5)}}
+.sc-rings{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin:1.3rem 0}
+.ring-c{background:var(--glass);border:1px solid var(--border);border-radius:11px;padding:.9rem;text-align:center}
+.ring-v{font-family:var(--font-d);font-size:2rem;letter-spacing:.05em}
+.ring-l{font-family:var(--font-t);font-size:.46rem;color:var(--muted);letter-spacing:.1em}
+.sc-rows{display:flex;flex-direction:column;gap:8px}
+.sc-row{display:flex;align-items:center;gap:10px;background:var(--glass);border:1px solid var(--border);
+  border-radius:11px;padding:.8rem .9rem;animation:fsu .4s ease both}
+.sc-em{width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;border:2px solid}
+.sc-info{flex:1}
+.sc-name{font-family:var(--font-d);font-size:1rem;letter-spacing:.05em}
+.sc-bar{background:rgba(255,255,255,.06);height:3px;border-radius:99px;overflow:hidden;margin:4px 0}
+.sc-bf{height:100%;border-radius:99px;transition:width 1.2s cubic-bezier(.4,0,.2,1)}
+.sc-det{font-family:var(--font-t);font-size:.5rem;color:var(--muted);display:flex;justify-content:space-between}
+.sc-pts{font-family:var(--font-t);font-size:.85rem;font-weight:700;flex-shrink:0}
+
+@keyframes fsu{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+.confetti-p{position:fixed;pointer-events:none;z-index:9999;animation:cf linear forwards}
+@keyframes cf{0%{transform:translateY(-20px) rotate(0deg);opacity:1}100%{transform:translateY(100vh) rotate(720deg);opacity:0}}
+.ripple-el{position:fixed;border-radius:50%;background:rgba(232,255,71,.12);pointer-events:none;z-index:50;transform:translate(-50%,-50%) scale(0);animation:rp .55s ease-out forwards}
+@keyframes rp{to{transform:translate(-50%,-50%) scale(1);opacity:0}}
+@keyframes floatUp{0%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-45px)}}
+
+/* DEBUG toggle */
+.debug-bar{position:fixed;bottom:1rem;left:50%;transform:translateX(-50%);z-index:999;display:flex;align-items:center;gap:.5rem;
+  background:#0a0a18;border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:.5rem .8rem}
+.debug-bar label{font-family:var(--font-t);font-size:.46rem;color:var(--muted);letter-spacing:.1em}
+.debug-bar input[type=time]{font-family:var(--font-t);font-size:.6rem;background:#111;color:var(--neon);border:1px solid rgba(232,255,71,.3);border-radius:4px;padding:3px 6px;cursor:pointer}
+.debug-bar button{font-family:var(--font-t);font-size:.46rem;letter-spacing:.08em;padding:4px 10px;border-radius:4px;border:1px solid rgba(232,255,71,.3);background:rgba(232,255,71,.07);color:var(--neon);cursor:pointer}
+</style>
+</head>
+<body>
+<div class="bg-grid"></div>
+<div class="orb o1"></div><div class="orb o2"></div>
+<canvas id="ptc"></canvas>
+<div id="cur"></div><div id="cur2"></div>
+
+<!-- TOAST -->
+<div class="toast" id="toast">
+  <div class="toast-icon" id="toast-icon">🔓</div>
+  <div class="toast-body">
+    <div class="toast-title" id="toast-title">ĐÃ MỞ KHÓA!</div>
+    <div class="toast-msg" id="toast-msg">Đến giờ rồi, vào thôi!</div>
+  </div>
+</div>
+
+<!-- ══════ HOME ══════ -->
+<div class="page active" id="page-home">
+<div class="inner">
+  <div style="padding:1.5rem 0 1rem">
+    <div style="font-family:var(--font-t);font-size:.5rem;letter-spacing:.25em;color:var(--neon);margin-bottom:.3rem">⚡ 16 TUỔI · 1M70 · 60KG</div>
+    <div style="font-family:var(--font-d);font-size:clamp(2.8rem,10vw,5rem);letter-spacing:.04em;line-height:.9;background:linear-gradient(135deg,#fff 0%,var(--neon) 55%,var(--neon2) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">GRIND<br>MODE</div>
+    <div style="font-family:var(--font-t);font-size:.5rem;color:var(--muted);letter-spacing:.18em;margin-top:.4rem">REAL-TIME UNLOCK · GYM · HỌC · SKINCARE</div>
+  </div>
+
+  <!-- LIVE CLOCK -->
+  <div class="clock-wrap">
+    <div class="clock-top">
+      <div>
+        <div class="clock-now" id="h-clock">00:00:00</div>
+        <div class="clock-date" id="h-date">ĐANG TẢI...</div>
+      </div>
+      <div class="clock-day-badge" id="h-daybadge" style="color:var(--neon);border-color:rgba(232,255,71,.3);background:rgba(232,255,71,.07)">—</div>
+    </div>
+    <div class="clock-bottom">
+      <div class="clk-stat"><div class="clk-val" style="color:var(--neon)" id="h-pts">0</div><div class="clk-lbl">ĐIỂM TUẦN</div></div>
+      <div class="clk-stat"><div class="clk-val" style="color:var(--neon2)" id="h-active-count">0</div><div class="clk-lbl">ĐANG MỞ</div></div>
+      <div class="clk-stat"><div class="clk-val" style="color:var(--green)" id="h-done-count">0</div><div class="clk-lbl">HOÀN THÀNH</div></div>
+      <div class="clk-stat"><div class="clk-val" style="color:var(--red)" id="h-missed-count">0</div><div class="clk-lbl">BỎ LỠ</div></div>
+    </div>
+  </div>
+
+  <!-- NEXT UNLOCK BANNER -->
+  <div class="next-unlock" id="next-unlock-bar">
+    <div class="nu-icon">⏳</div>
+    <div class="nu-body">
+      <div class="nu-label">BÀI TẬP TIẾP THEO MỞ KHÓA</div>
+      <div class="nu-name" id="nu-name">—</div>
+      <div class="nu-countdown" id="nu-cd">—</div>
+    </div>
+  </div>
+
+  <div class="wk-card">
+    <div class="wk-top">
+      <div>
+        <div class="wk-num" id="h-pts2">0</div>
+        <div style="font-family:var(--font-t);font-size:.5rem;color:var(--muted);letter-spacing:.1em">/ <span id="h-max">0</span> ĐIỂM TUẦN NÀY</div>
+      </div>
+      <div class="wk-rank"><div id="h-ri" style="font-size:.85rem;margin-bottom:3px">😴</div><div id="h-rl"></div></div>
+    </div>
+    <div class="prog"><div class="prog-fill" id="h-prog" style="width:0%"></div></div>
+    <div class="prog-pct" id="h-pct">0%</div>
+  </div>
+
+  <div class="tab-row">
+    <button class="tab active" onclick="setTab('all',this)">TẤT CẢ</button>
+    <button class="tab" onclick="setTab('gym',this)">💪 GYM</button>
+    <button class="tab" onclick="setTab('study',this)">📚 HỌC</button>
+    <button class="tab" onclick="setTab('skin',this)">✨ SKINCARE</button>
+  </div>
+  <div class="day-grid" id="day-grid"></div>
+  <button class="score-cta" onclick="goScore()"><span>🏆 &nbsp;BẢNG ĐIỂM CUỐI TUẦN</span></button>
+</div>
+</div>
+
+<!-- ══════ DAY ══════ -->
+<div class="page" id="page-day">
+<div class="inner">
+  <button class="back" onclick="goHome()"><span class="back-arr">←</span> QUAY LẠI</button>
+  <div class="day-hero">
+    <span class="day-em" id="d-em"></span>
+    <div class="day-ttl" id="d-ttl"></div>
+    <div class="day-ftag" id="d-ftag"></div>
+    <div class="day-pbwrap">
+      <div class="day-pb"><div class="day-pf" id="d-pf" style="width:0%"></div></div>
+      <div class="day-pinfo"><span id="d-done">0/0</span><strong id="d-pts">0 pts</strong></div>
+    </div>
+  </div>
+  <!-- live clock in day -->
+  <div style="display:flex;align-items:center;gap:.8rem;margin-bottom:1rem">
+    <div style="font-family:var(--font-d);font-size:1.5rem;color:var(--neon);text-shadow:0 0 15px rgba(232,255,71,.3)" id="d-clock">00:00</div>
+    <div style="font-family:var(--font-t);font-size:.48rem;color:var(--muted);letter-spacing:.1em">THỜI GIAN THỰC · BÀI TẬP TỰ ĐỘNG MỞ KHÓA</div>
+  </div>
+
+  <div class="tab-row" id="day-tabs">
+    <button class="tab active" onclick="setDayTab('all',this)">TẤT CẢ</button>
+    <button class="tab" onclick="setDayTab('gym',this)">💪 GYM</button>
+    <button class="tab" onclick="setDayTab('study',this)">📚 HỌC</button>
+    <button class="tab" onclick="setDayTab('skin',this)">✨ SKINCARE</button>
+  </div>
+  <div id="item-list"></div>
+  <div class="cpl-banner" id="cpl-banner">
+    <div class="cpl-title">🏆 HOÀN THÀNH NGÀY HÔM NAY!</div>
+    <div style="font-family:var(--font-t);font-size:.6rem;color:var(--green);letter-spacing:.1em;margin-top:7px">XUẤT SẮC — KIÊN TRÌ LÀ SỨC MẠNH!</div>
+  </div>
+</div>
+</div>
+
+<!-- ══════ SCORE ══════ -->
+<div class="page" id="page-score">
+<div class="inner">
+  <button class="back" onclick="goHome()"><span class="back-arr">←</span> QUAY LẠI</button>
+  <div class="sc-hero">
+    <div style="font-family:var(--font-t);font-size:.5rem;color:var(--muted);letter-spacing:.2em;margin-bottom:.4rem">BẢNG ĐIỂM CUỐI TUẦN</div>
+    <div class="sc-big" id="sc-tot">0</div>
+    <div class="sc-lbl">TỔNG ĐIỂM / <span id="sc-max">0</span></div>
+    <div class="rank-badge" id="sc-rank">😴 CẦN CỐ GẮNG</div>
+  </div>
+  <div class="sc-rings">
+    <div class="ring-c"><div class="ring-v" style="color:var(--neon)" id="sc-pct">0%</div><div class="ring-l">HOÀN THÀNH</div></div>
+    <div class="ring-c"><div class="ring-v" style="color:var(--green)" id="sc-days">0/7</div><div class="ring-l">NGÀY FULL</div></div>
+    <div class="ring-c"><div class="ring-v" style="color:var(--neon2)" id="sc-items">0</div><div class="ring-l">MỤC ĐÃ XOA</div></div>
+  </div>
+  <div class="sc-rows" id="sc-rows"></div>
+</div>
+</div>
+
+<!-- DEBUG BAR -->
+<div class="debug-bar" id="debug-bar">
+  <label>🕐 GIẢ LẬP GIỜ:</label>
+  <input type="time" id="debug-time" value="">
+  <button onclick="applyDebugTime()">ÁP DỤNG</button>
+  <button onclick="clearDebugTime()">THỰC</button>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+//  YOUTUBE HELPER
+// ═══════════════════════════════════════════════════════
+const YT = q => `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`;
+
+const CAT = {
+  gym:   {label:'GYM',      color:'#ef4444', icon:'💪'},
+  study: {label:'HỌC TẬP', color:'#3b82f6', icon:'📚'},
+  skin:  {label:'SKINCARE', color:'#ff6b9d', icon:'✨'},
+};
+
+// ═══════════════════════════════════════════════════════
+//  TIME HELPERS
+// ═══════════════════════════════════════════════════════
+// startH, startM, endH, endM  (24h format)
+// toMins: convert h,m to total minutes
+const toMins = (h,m) => h*60+m;
+
+// Get current time in minutes from midnight (or debug override)
+let debugMins = null; // null = use real time
+function nowMins(){
+  if(debugMins !== null) return debugMins;
+  const n = new Date();
+  return n.getHours()*60 + n.getMinutes();
+}
+function nowSecs(){
+  const n = new Date();
+  return n.getHours()*3600 + n.getMinutes()*60 + n.getSeconds();
+}
+
+// Get current JS day of week: 0=Sun,1=Mon...6=Sat
+function todayDow(){
+  return new Date().getDay();
+}
+// Map dow to our day id
+const DOW_MAP = {1:'t2',2:'t3',3:'t4',4:'t5',5:'t6',6:'t7',0:'cn'};
+function todayDayId(){ return DOW_MAP[todayDow()]; }
+
+// Format mins difference nicely
+function fmtCountdown(mins){
+  if(mins<=0) return 'NGAY BÂY GIỜ';
+  const h=Math.floor(mins/60), m=mins%60;
+  if(h>0) return `${h}g ${m} phút nữa`;
+  return `${m} phút nữa`;
+}
+function fmtCountdownSecs(secs){
+  if(secs<=0) return 'NGAY BÂY GIỜ';
+  const h=Math.floor(secs/3600), m=Math.floor((secs%3600)/60), s=secs%60;
+  if(h>0) return `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
+
+// Get slot state: 'locked' | 'upcoming' | 'active' | 'missed' | 'done'
+function getSlotState(item, dayId){
+  const checked = (S.checks[dayId]||{})[item.id];
+  if(checked) return 'done';
+  if(!item.startH && item.startH !== 0) return 'active'; // no time = always open
+  const nm = nowMins();
+  const start = toMins(item.startH, item.startM||0);
+  const end   = toMins(item.endH,   item.endM||0);
+  if(nm >= end)   return 'missed';
+  if(nm >= start) return 'active';
+  if(nm >= start - 30) return 'upcoming';
+  return 'locked';
+}
+
+// ═══════════════════════════════════════════════════════
+//  DATA — 7 DAYS  (each item has startH,startM,endH,endM)
+// ═══════════════════════════════════════════════════════
+const DAYS = [
+  // ─── THỨ 2 ────────────────────────────────────
+  {
+    id:'t2', label:'T2', full:'Thứ Hai', color:'#ef4444', emoji:'🔴',
+    focus:'NGỰC + CHÂN / PYTHON / SÁNG CHIỀU',
+    items:[
+      {id:'sk_m',  cat:'skin',  name:'Skincare Sáng',       startH:5, startM:0,  endH:5,  endM:30,  sets:'', pts:10, dur:'10 phút', yt:YT('morning skincare routine nam'), tip:'Rửa mặt → Toner → Moisturizer → SPF50+'},
+      {id:'bp',    cat:'gym',   name:'Bench Press',          startH:6, startM:0,  endH:7,  endM:0,   sets:'3×8',  pts:30, dur:'45 phút', yt:YT('bench press tutorial kỹ thuật đúng gym'), tip:'Siết bả vai, khuỷu tay 70°, thở ra khi đẩy'},
+      {id:'sq',    cat:'gym',   name:'Squat',                startH:6, startM:0,  endH:7,  endM:0,   sets:'4×8',  pts:35, dur:'40 phút', yt:YT('squat đúng kỹ thuật người mới tập gym'), tip:'Lưng thẳng, đầu gối theo hướng mũi chân'},
+      {id:'cf',    cat:'gym',   name:'Cable Fly',            startH:6, startM:0,  endH:7,  endM:0,   sets:'3×12', pts:20, dur:'25 phút', yt:YT('cable fly chest tutorial'), tip:'Cảm nhận kéo căng ngực, chạm tay giữa'},
+      {id:'school_m', cat:'study', name:'🏫 Học Trường Sáng', startH:7, startM:0,  endH:10, endM:50,  sets:'', pts:20, dur:'3h50', yt:YT('active recall study method'), tip:'Tập trung nghe giảng · ghi chú cẩn thận'},
+      {id:'py1',   cat:'study', name:'Python · Variables & Loops', startH:11, startM:0, endH:12, endM:30, sets:'', pts:25, dur:'60 phút', yt:YT('python for beginners variables loops tutorial'), tip:'Code thực hành · print, input, if/else, for/while'},
+      {id:'school_a', cat:'study', name:'🏫 Học Thêm Chiều',  startH:14, startM:0, endH:16, endM:50,  sets:'', pts:20, dur:'2h50', yt:YT('học thêm hiệu quả'), tip:'Ôn bài + bài tập theo lịch trường'},
+      {id:'code_e', cat:'study', name:'Python · Bài Tập Thực Hành', startH:17, startM:0, endH:18, endM:30, sets:'', pts:20, dur:'90 phút', yt:YT('python beginner projects tutorial'), tip:'Viết ít nhất 1 chương trình hoàn chỉnh'},
+      {id:'en1',   cat:'study', name:'Anh văn · 20 Từ Vựng',startH:19, startM:0, endH:19, endM:30,  sets:'', pts:15, dur:'30 phút', yt:YT('english vocabulary anki flashcard method'), tip:'Anki hoặc Quizlet · spaced repetition'},
+      {id:'mat_r', cat:'study', name:'Ôn Toán / Lý',         startH:19, startM:45,endH:21, endM:15,  sets:'', pts:20, dur:'90 phút', yt:YT('học toán lý hiệu quả active recall'), tip:'Tự vật lộn bài trước khi xem đáp án'},
+      {id:'me1',   cat:'skin',  name:'Mewing + Chin Tuck',   startH:21, startM:0, endH:21, endM:20,  sets:'3×15', pts:10, dur:'10 phút', yt:YT('mewing chin tuck jawline exercise'), tip:'Lưỡi tì vòm miệng · chin tuck 3×15 reps'},
+      {id:'sk_e',  cat:'skin',  name:'Skincare Tối',         startH:21, startM:15,endH:21, endM:30,  sets:'', pts:10, dur:'10 phút', yt:YT('night skincare routine nam basic'), tip:'Double cleanse → Toner → Moisturizer'},
+    ]
+  },
+  // ─── THỨ 3 ────────────────────────────────────
+  {
+    id:'t3', label:'T3', full:'Thứ Ba', color:'#3b82f6', emoji:'🔵',
+    focus:'LƯNG + TRICEPS / TOÁN / ANH VĂN',
+    items:[
+      {id:'sk_m',  cat:'skin',  name:'Skincare Sáng',        startH:5, startM:0,  endH:5,  endM:30,  sets:'', pts:10, dur:'10 phút', yt:YT('morning skincare spf men'), tip:'SPF là bước quan trọng nhất buổi sáng'},
+      {id:'pu',    cat:'gym',   name:'Pull-up',              startH:6, startM:0,  endH:7,  endM:0,   sets:'3×max', pts:35, dur:'30 phút', yt:YT('pull up form tutorial back lat'), tip:'Kéo khuỷu xuống, không swing người'},
+      {id:'bbr',   cat:'gym',   name:'Barbell Row',          startH:6, startM:0,  endH:7,  endM:0,   sets:'4×8',   pts:30, dur:'40 phút', yt:YT('barbell row bentover tutorial'), tip:'Lưng thẳng, kéo về bụng dưới'},
+      {id:'tpd',   cat:'gym',   name:'Tricep Pushdown',      startH:6, startM:0,  endH:7,  endM:0,   sets:'3×12',  pts:20, dur:'20 phút', yt:YT('tricep pushdown cable form'), tip:'Cánh tay ép sát thân, chỉ gập khuỷu'},
+      {id:'school_m', cat:'study', name:'🏫 Học Trường Sáng',startH:7, startM:0,  endH:10, endM:50,  sets:'', pts:20, dur:'3h50', yt:YT('note taking method cornell'), tip:'Ghi chép theo Cornell method'},
+      {id:'hoa_r', cat:'study', name:'Ôn Hóa',              startH:13, startM:30,endH:15, endM:30,  sets:'', pts:25, dur:'120 phút', yt:YT('hóa học phổ thông phản ứng hóa học'), tip:'Flashcard phương trình hóa học · viết PTHH'},
+      {id:'school_a', cat:'study', name:'🏫 Học Thêm Chiều', startH:14, startM:0, endH:16, endM:50,  sets:'', pts:20, dur:'2h50', yt:YT('học thêm ôn thi hiệu quả'), tip:'Ghi chú câu hỏi để hỏi thầy'},
+      {id:'py_f',  cat:'study', name:'Python · Functions',   startH:17, startM:0, endH:18, endM:30,  sets:'', pts:25, dur:'90 phút', yt:YT('python functions oop tutorial'), tip:'def · return · *args · **kwargs'},
+      {id:'en2',   cat:'study', name:'Anh · Shadowing 30\'', startH:19, startM:0, endH:19, endM:30,  sets:'', pts:15, dur:'30 phút', yt:YT('english shadowing technique BBC'), tip:'Bắt chước phát âm người bản ngữ · BBC'},
+      {id:'pos1',  cat:'skin',  name:'Glute Bridge + Posture',startH:20,startM:30,endH:20, endM:50,  sets:'3×15', pts:10, dur:'15 phút', yt:YT('glute bridge posture exercise'), tip:'Siết mông ở đỉnh · wall slide 10 reps'},
+      {id:'sk_e',  cat:'skin',  name:'Skincare Tối',         startH:21, startM:15,endH:21, endM:30,  sets:'', pts:10, dur:'10 phút', yt:YT('night skincare double cleanse'), tip:'Double cleanse · nước tẩy trang trước'},
+    ]
+  },
+  // ─── THỨ 4 ────────────────────────────────────
+  {
+    id:'t4', label:'T4', full:'Thứ Tư', color:'#f59e0b', emoji:'🟡',
+    focus:'VAI + BICEPS / HÓA / PYTHON',
+    items:[
+      {id:'sk_m',  cat:'skin',  name:'Skincare Sáng + Tóc',  startH:5, startM:0,  endH:5,  endM:30,  sets:'', pts:10, dur:'15 phút', yt:YT('morning hair skincare routine men'), tip:'Dưỡng tóc · chọn outfit chuẩn'},
+      {id:'ohp',   cat:'gym',   name:'Overhead Press',       startH:6, startM:0,  endH:7,  endM:0,   sets:'4×8',  pts:35, dur:'40 phút', yt:YT('overhead press OHP form tutorial'), tip:'Siết core, không cong lưng, đẩy thẳng lên'},
+      {id:'lr',    cat:'gym',   name:'Lateral Raise',        startH:6, startM:0,  endH:7,  endM:0,   sets:'3×15', pts:20, dur:'20 phút', yt:YT('lateral raise shoulder form'), tip:'Nâng đến ngang vai, khuỷu tay hơi gập'},
+      {id:'bc',    cat:'gym',   name:'Barbell Curl',         startH:6, startM:0,  endH:7,  endM:0,   sets:'3×10', pts:25, dur:'20 phút', yt:YT('barbell curl bicep tutorial'), tip:'Không swing, supinate cổ tay cuối rep'},
+      {id:'school_m', cat:'study', name:'🏫 Học Trường Sáng',startH:7, startM:0,  endH:10, endM:50,  sets:'', pts:20, dur:'3h50', yt:YT('study focus school'), tip:'Không điện thoại · tập trung 100%'},
+      {id:'hoa_p', cat:'study', name:'Ôn Hóa Trước Học Thêm',startH:13,startM:30,endH:15, endM:0,   sets:'', pts:20, dur:'90 phút', yt:YT('hóa học cơ bản phổ thông'), tip:'Chuẩn bị câu hỏi cho thầy'},
+      {id:'school_a', cat:'study', name:'🏫 Học Thêm Chiều', startH:14, startM:0, endH:16, endM:50,  sets:'', pts:20, dur:'2h50', yt:YT('học thêm tập trung'), tip:'Ôn bài · làm bài tập'},
+      {id:'hoa_xt',cat:'study', name:'🏫 Học Thêm Hóa',      startH:17, startM:0, endH:19, endM:0,   sets:'', pts:30, dur:'2 giờ', yt:YT('hóa học học thêm hiệu quả'), tip:'Ghi chép đầy đủ · hỏi khi không hiểu'},
+      {id:'py2',   cat:'study', name:'Python · OOP Cơ Bản',  startH:19, startM:30,endH:20, endM:30,  sets:'', pts:25, dur:'60 phút', yt:YT('python OOP class object tutorial'), tip:'class · __init__ · method · self'},
+      {id:'me2',   cat:'skin',  name:'Mewing + Toe Raise',   startH:20, startM:30,endH:20, endM:45,  sets:'3×20', pts:10, dur:'10 phút', yt:YT('mewing tutorial jawline'), tip:'Toe raise 3×20 · cải thiện dáng đứng'},
+      {id:'sk_e',  cat:'skin',  name:'Skincare Tối',         startH:21, startM:15,endH:21, endM:30,  sets:'', pts:10, dur:'10 phút', yt:YT('night skincare retinol routine'), tip:'Retinol 2×/tuần nếu da ổn'},
+    ]
+  },
+  // ─── THỨ 5 ────────────────────────────────────
+  {
+    id:'t5', label:'T5', full:'Thứ Năm', color:'#10b981', emoji:'🟢',
+    focus:'CHÂN NẶNG + CORE / VẬT LÝ / PYTHON',
+    items:[
+      {id:'sk_m',  cat:'skin',  name:'Skincare Sáng',        startH:5, startM:0,  endH:5,  endM:30,  sets:'', pts:10, dur:'10 phút', yt:YT('morning skincare men'), tip:'Consistent hơn là xịn'},
+      {id:'sq5',   cat:'gym',   name:'Squat 5×5 Nặng',       startH:6, startM:0,  endH:7,  endM:0,   sets:'5×5',   pts:45, dur:'50 phút', yt:YT('squat 5x5 strength powerlifting'), tip:'Bài nặng nhất tuần · form chuẩn 100%'},
+      {id:'rdl',   cat:'gym',   name:'Romanian Deadlift',    startH:6, startM:0,  endH:7,  endM:0,   sets:'3×10',  pts:30, dur:'30 phút', yt:YT('romanian deadlift RDL tutorial'), tip:'Đẩy hông ra sau · lưng thẳng'},
+      {id:'hiit',  cat:'gym',   name:'HIIT Sprint 6×30s',    startH:6, startM:0,  endH:7,  endM:0,   sets:'6rds',  pts:40, dur:'15 phút', yt:YT('HIIT sprint interval training cardio'), tip:'30s toàn lực – 30s đi bộ · VO2max'},
+      {id:'school_m', cat:'study', name:'🏫 Học Trường Sáng',startH:7, startM:0,  endH:10, endM:50,  sets:'', pts:20, dur:'3h50', yt:YT('focus study school tips'), tip:'Ghi chép · đặt câu hỏi trong lớp'},
+      {id:'ly1',   cat:'study', name:'Vật Lý · Chuyên Đề Sâu',startH:13,startM:30,endH:15,endM:30,  sets:'', pts:30, dur:'120 phút', yt:YT('vật lý lớp 10 11 bài tập cơ học điện'), tip:'Vẽ hình trước · hiểu bản chất · không thuộc công thức'},
+      {id:'py3',   cat:'study', name:'Python · Algorithms',  startH:15, startM:30,endH:16, endM:30,  sets:'', pts:25, dur:'60 phút', yt:YT('python algorithms data structures tutorial'), tip:'List · dict · stack · Big O cơ bản'},
+      {id:'mat_xt',cat:'study', name:'🏫 Học Thêm Toán',     startH:17, startM:0, endH:19, endM:0,   sets:'', pts:30, dur:'2 giờ', yt:YT('toán học thêm lớp 10 11 12'), tip:'Chuẩn bị câu hỏi · review điểm yếu'},
+      {id:'en3',   cat:'study', name:'Anh · Nghe + Viết',    startH:19, startM:30,endH:20, endM:0,   sets:'', pts:15, dur:'30 phút', yt:YT('ielts listening practice english'), tip:'BBC/CNN · note từ lạ · viết 5 câu tóm tắt'},
+      {id:'pos2',  cat:'skin',  name:'Posture Drill Full',   startH:20, startM:0, endH:20, endM:20,  sets:'', pts:10, dur:'15 phút', yt:YT('posture correction exercises forward head'), tip:'Wall slide · hip hinge · dead bug · cat-cow'},
+      {id:'sk_e',  cat:'skin',  name:'Skincare Tối',         startH:21, startM:15,endH:21, endM:30,  sets:'', pts:10, dur:'10 phút', yt:YT('night skincare routine men step by step'), tip:'Moisturizer dù da dầu · đừng bỏ'},
+    ]
+  },
+  // ─── THỨ 6 ────────────────────────────────────
+  {
+    id:'t6', label:'T6', full:'Thứ Sáu', color:'#8b5cf6', emoji:'🟣',
+    focus:'PUSH-PULL NHẸ / ANH VĂN / TỔNG KẾT TUẦN',
+    items:[
+      {id:'sk_m',  cat:'skin',  name:'Skincare Sáng + Tóc Đẹp', startH:5, startM:0, endH:5, endM:30, sets:'', pts:10, dur:'15 phút', yt:YT('friday morning grooming routine men'), tip:'Cuối tuần đến · chuẩn bị diện mạo đẹp'},
+      {id:'bp2',   cat:'gym',   name:'Bench Press',             startH:6, startM:0, endH:7, endM:0,  sets:'3×8', pts:30, dur:'40 phút', yt:YT('bench press chest workout'), tip:'Volume nhẹ hơn T2 · tập cảm nhận cơ'},
+      {id:'sr',    cat:'gym',   name:'Seated Row',              startH:6, startM:0, endH:7, endM:0,  sets:'3×10', pts:25, dur:'20 phút', yt:YT('seated cable row back form'), tip:'Ép bả vai vào nhau ở cuối mỗi rep'},
+      {id:'lpd2',  cat:'gym',   name:'Lat Pulldown',            startH:6, startM:0, endH:7, endM:0,  sets:'3×10', pts:25, dur:'20 phút', yt:YT('lat pulldown wide grip form'), tip:'Kéo về ngực · giữ 1 giây · hạ chậm'},
+      {id:'school_m', cat:'study', name:'🏫 Học Trường Sáng',   startH:7, startM:0, endH:10,endM:50, sets:'', pts:20, dur:'3h50', yt:YT('school friday motivation'), tip:'Cuối tuần · cố gắng hết sức'},
+      {id:'py_proj',cat:'study', name:'Python · Mini Project',  startH:12,startM:0, endH:14,endM:0,  sets:'', pts:30, dur:'120 phút', yt:YT('python mini project beginner calculator game'), tip:'Build 1 project hoàn chỉnh · Calculator / Quiz / Game'},
+      {id:'en4',   cat:'study', name:'Anh · Writing Essay',    startH:14,startM:0, endH:15,endM:0,  sets:'', pts:25, dur:'60 phút', yt:YT('ielts writing task 2 structure'), tip:'Outline 5 phút · 3 đoạn thân · check grammar'},
+      {id:'read1', cat:'study', name:'📖 Đọc Sách Giải Trí',   startH:16,startM:0, endH:17,endM:0,  sets:'', pts:10, dur:'60 phút', yt:YT('reading books benefits habit'), tip:'Hoàn toàn tự do · không mạng xã hội'},
+      {id:'rv2',   cat:'study', name:'Tổng Ôn Tuần',           startH:19,startM:30,endH:21,endM:0,  sets:'', pts:25, dur:'90 phút', yt:YT('weekly review study method'), tip:'Review điểm yếu tuần · mind map chủ đề'},
+      {id:'skin_deep', cat:'skin', name:'Skincare Tối + Sheet Mask', startH:21, startM:0, endH:21, endM:20, sets:'', pts:15, dur:'15 phút', yt:YT('sheet mask skincare how to use'), tip:'Sheet mask T6 · sau toner · trước moisturizer'},
+      {id:'me3',   cat:'skin',  name:'Mewing + Neck Curl-up',  startH:21,startM:0, endH:21,endM:15, sets:'3×12', pts:10, dur:'10 phút', yt:YT('neck curl up exercise jawline'), tip:'Neck curl-up 3×12 · siết cơ cổ trước'},
+    ]
+  },
+  // ─── THỨ 7 ────────────────────────────────────
+  {
+    id:'t7', label:'T7', full:'Thứ Bảy', color:'#06b6d4', emoji:'🔷',
+    focus:'TOÀN THÂN / PYTHON PROJECT / TOÁN',
+    items:[
+      {id:'sk_m',  cat:'skin',  name:'Skincare Kỹ + Tẩy Tế Bào Chết', startH:6, startM:0, endH:6, endM:30, sets:'', pts:12, dur:'15 phút', yt:YT('exfoliating skincare routine men'), tip:'Tẩy tế bào chết 2×/tuần'},
+      {id:'mat_xt',cat:'study', name:'🏫 Học Thêm T7 (7-9h)',          startH:7, startM:0, endH:9, endM:0,  sets:'', pts:25, dur:'2 giờ', yt:YT('toán học thêm buổi sáng'), tip:'Đến đúng giờ · chuẩn bị bài trước'},
+      {id:'fbl',   cat:'gym',   name:'Full Body + HIIT',               startH:9, startM:15,endH:10,endM:30, sets:'3×12', pts:40, dur:'75 phút', yt:YT('full body workout HIIT cardio'), tip:'Cường độ trung bình · không đến failure'},
+      {id:'py4',   cat:'study', name:'Python · Weekend Sprint',        startH:11,startM:30,endH:13,endM:0,  sets:'', pts:35, dur:'90 phút', yt:YT('python project tutorial beginner'), tip:'Build project hoàn chỉnh · push GitHub'},
+      {id:'read2', cat:'study', name:'📖 Đọc Sách + Nghỉ Trưa',       startH:13,startM:30,endH:15,endM:0,  sets:'', pts:10, dur:'90 phút', yt:YT('book reading afternoon relax'), tip:'Ngủ 30\' + đọc sách 1h'},
+      {id:'skin_sat',cat:'skin', name:'Chăm Sóc Ngoại Hình Tổng Thể', startH:15,startM:0, endH:16,endM:0,  sets:'', pts:15, dur:'60 phút', yt:YT('looksmaxx routine men skincare hair'), tip:'Tóc · móng · posture · mặt nạ'},
+      {id:'mat_r', cat:'study', name:'Ôn Toán Tự Học',                 startH:16,startM:0, endH:18,endM:0,  sets:'', pts:25, dur:'120 phút', yt:YT('tự học toán hiệu quả ôn thi'), tip:'Giải đề · xem lại điểm yếu'},
+      {id:'sk_e',  cat:'skin',  name:'Skincare Tối',                   startH:21,startM:0, endH:21,endM:15, sets:'', pts:10, dur:'10 phút', yt:YT('night skincare routine review'), tip:'Đừng ngủ muộn · sleep là skincare tốt nhất'},
+    ]
+  },
+  // ─── CHỦ NHẬT ─────────────────────────────────
+  {
+    id:'cn', label:'CN', full:'Chủ Nhật', color:'#f97316', emoji:'🔶',
+    focus:'PHỤC HỒI / CARDIO NHẸ / TOÁN',
+    items:[
+      {id:'sk_m',  cat:'skin',  name:'Skincare + Mặt Nạ',       startH:6, startM:30,endH:7, endM:0,  sets:'', pts:12, dur:'20 phút', yt:YT('sunday skincare mask routine men'), tip:'Chủ nhật · skincare kỹ hơn'},
+      {id:'cardio',cat:'gym',   name:'Cardio Nhẹ + Giãn Cơ',    startH:7, startM:30,endH:8, endM:30, sets:'20 phút', pts:20, dur:'60 phút', yt:YT('light cardio yoga recovery workout'), tip:'Chạy 20\' + giãn cơ toàn thân · không tạ'},
+      {id:'py_rev',cat:'study', name:'Python · Review + GitHub', startH:8, startM:30,endH:11,endM:0,  sets:'', pts:25, dur:'150 phút', yt:YT('python code review github push'), tip:'Review code tuần · refactor · push GitHub'},
+      {id:'read3', cat:'study', name:'📖 Đọc Sách Tự Do',       startH:12,startM:0, endH:14,endM:0,  sets:'', pts:10, dur:'120 phút', yt:YT('reading afternoon relax'), tip:'Hoàn toàn tự do · thư giãn đầu óc'},
+      {id:'mat_r2',cat:'study', name:'Ôn Toán Tự Học (14-17h)', startH:14,startM:0, endH:17,endM:0,  sets:'', pts:25, dur:'3 giờ', yt:YT('tự học toán đại số giải tích'), tip:'Giải đề · phân tích lỗi · ghi chú'},
+      {id:'mat_xt2',cat:'study',name:'🏫 Học Thêm Toán CN',     startH:17,startM:0, endH:19,endM:0,  sets:'', pts:30, dur:'2 giờ', yt:YT('toán học thêm buổi tối'), tip:'Hỏi thầy phần chưa hiểu · ghi chép cẩn thận'},
+      {id:'plan1', cat:'study', name:'Lên Kế Hoạch Tuần Mới',   startH:19,startM:30,endH:20,endM:15, sets:'', pts:15, dur:'45 phút', yt:YT('weekly planning productive system'), tip:'Review tuần · set mục tiêu tuần mới · planner'},
+      {id:'look2', cat:'skin',  name:'Looksmaxx + Progress Check',startH:20,startM:15,endH:20,endM:35,sets:'', pts:12, dur:'15 phút', yt:YT('looksmaxx progress check weekly'), tip:'Chụp ảnh thẳng · nghiêng · so sánh với tuần trước'},
+      {id:'sk_e',  cat:'skin',  name:'Skincare Tối + Chuẩn Bị T2', startH:21,startM:15,endH:21,endM:30, sets:'', pts:10, dur:'15 phút', yt:YT('sunday night routine prepare week'), tip:'Soạn đồ T2 · skincare · ngủ đúng giờ'},
+    ]
+  },
+];
+
+// ═══════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════
+const S = {
+  checks:{}, timers:{}, curDay:null, homeTab:'all', dayTab:'all',
+};
+let prevUnlockedKeys = new Set();
+
+// ═══════════════════════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════════════════════
+const dayPts  = d => d.items.reduce((s,i)=>(S.checks[d.id]||{})[i.id]?s+i.pts:s, 0);
+const dayMax  = d => d.items.reduce((s,i)=>s+i.pts, 0);
+const totPts  = ()=> DAYS.reduce((s,d)=>s+dayPts(d), 0);
+const totMax  = ()=> DAYS.reduce((s,d)=>s+dayMax(d), 0);
+const fmtT    = s => `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
+const getRank = p => p>=90?{i:'🏆',l:'HUYỀN THOẠI'}:p>=70?{i:'💪',l:'CHIẾN BINH'}:p>=50?{i:'⚡',l:'ĐANG TIẾN'}:p>=30?{i:'🔥',l:'MỚI BẮT ĐẦU'}:{i:'😴',l:'CẦN CỐ GẮNG'};
+const DAYS_VI = ['Chủ Nhật','Thứ Hai','Thứ Ba','Thứ Tư','Thứ Năm','Thứ Sáu','Thứ Bảy'];
+const MONTHS_VI = ['Tháng 1','Tháng 2','Tháng 3','Tháng 4','Tháng 5','Tháng 6','Tháng 7','Tháng 8','Tháng 9','Tháng 10','Tháng 11','Tháng 12'];
+
+// ═══════════════════════════════════════════════════════
+//  NAV
+// ═══════════════════════════════════════════════════════
+function showPage(id){
+  const old=document.querySelector('.page.active');
+  if(old){old.classList.add('exit');setTimeout(()=>old.classList.remove('active','exit'),380)}
+  setTimeout(()=>document.getElementById('page-'+id).classList.add('active'),80);
+}
+function goHome(){showPage('home');updateHome()}
+function goDay(id){S.curDay=id;S.dayTab='all';renderDayPage(id);showPage('day')}
+function goScore(){renderScorePage();showPage('score')}
+
+// ═══════════════════════════════════════════════════════
+//  TABS
+// ═══════════════════════════════════════════════════════
+function setTab(t,btn){
+  S.homeTab=t;
+  document.querySelectorAll('#page-home .tab-row .tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderDayGrid();
+}
+function setDayTab(t,btn){
+  S.dayTab=t;
+  document.querySelectorAll('#day-tabs .tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  if(S.curDay) renderItemList(DAYS.find(d=>d.id===S.curDay));
+}
+
+// ═══════════════════════════════════════════════════════
+//  DEBUG TIME
+// ═══════════════════════════════════════════════════════
+function applyDebugTime(){
+  const v = document.getElementById('debug-time').value;
+  if(!v) return;
+  const [hh,mm] = v.split(':').map(Number);
+  debugMins = hh*60 + mm;
+  updateAll();
+  showToast('🕐','GIỜ GIẢ LẬP','Đang xem lịch lúc '+v);
+}
+function clearDebugTime(){
+  debugMins = null;
+  document.getElementById('debug-time').value = '';
+  updateAll();
+  showToast('🕐','THỜI GIAN THỰC','Đã quay về giờ thực tế');
+}
+
+// ═══════════════════════════════════════════════════════
+//  CLOCK + TICKER
+// ═══════════════════════════════════════════════════════
+function updateClock(){
+  const now = debugMins !== null
+    ? (() => { const d = new Date(); d.setHours(Math.floor(debugMins/60), debugMins%60, 0); return d; })()
+    : new Date();
+  const hh=String(now.getHours()).padStart(2,'0');
+  const mm=String(now.getMinutes()).padStart(2,'0');
+  const ss=String(now.getSeconds()).padStart(2,'0');
+  const clockStr = `${hh}:${mm}:${ss}`;
+  const dateStr = `${DAYS_VI[now.getDay()]}, ${now.getDate()} ${MONTHS_VI[now.getMonth()]} ${now.getFullYear()}`;
+  const el = document.getElementById('h-clock');
+  const del = document.getElementById('d-clock');
+  if(el) el.textContent = clockStr;
+  if(del) del.textContent = `${hh}:${mm}`;
+  const hd = document.getElementById('h-date');
+  if(hd) hd.textContent = dateStr;
+}
+
+function updateNextUnlock(){
+  const todayId = todayDayId();
+  const today = DAYS.find(d=>d.id===todayId);
+  if(!today){ document.getElementById('next-unlock-bar').style.display='none'; return; }
+  const nm = nowMins();
+  // find next locked item that hasn't been checked
+  let best = null, bestStart = Infinity;
+  today.items.forEach(it=>{
+    if((S.checks[todayId]||{})[it.id]) return;
+    if(it.startH === undefined) return;
+    const start = toMins(it.startH, it.startM||0);
+    if(start > nm && start < bestStart){ bestStart = start; best = it; }
+  });
+  const bar = document.getElementById('next-unlock-bar');
+  if(!best){ bar.style.display='none'; return; }
+  bar.style.display='flex';
+  const diff = bestStart - nm;
+  document.getElementById('nu-name').textContent = best.name;
+  document.getElementById('nu-cd').textContent = '🔓 Mở khóa sau ' + fmtCountdown(diff);
+}
+
+function checkNewUnlocks(){
+  const todayId = todayDayId();
+  const today = DAYS.find(d=>d.id===todayId);
+  if(!today) return;
+  today.items.forEach(it=>{
+    const key = todayId+'-'+it.id;
+    const state = getSlotState(it, todayId);
+    const wasLocked = !prevUnlockedKeys.has(key);
+    if((state==='active'||state==='upcoming') && wasLocked){
+      prevUnlockedKeys.add(key);
+      // Only show toast on transition
+      if(state==='active'){
+        showToast('🔓','ĐÃ MỞ KHÓA!', it.name + ' — đến giờ rồi!');
+        if(document.getElementById('page-day').classList.contains('active') && S.curDay===todayId){
+          updateSlotCardState(todayId, it.id);
+        }
+      }
+    }
+  });
+}
+
+// Pre-populate prevUnlockedKeys on init
+function initUnlockState(){
+  DAYS.forEach(d=>{
+    d.items.forEach(it=>{
+      const state = getSlotState(it, d.id);
+      if(state!=='locked') prevUnlockedKeys.add(d.id+'-'+it.id);
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+//  UPDATE SINGLE CARD STATE (without re-rendering all)
+// ═══════════════════════════════════════════════════════
+function updateSlotCardState(dayId, itemId){
+  const d = DAYS.find(x=>x.id===dayId);
+  const it = d.items.find(x=>x.id===itemId);
+  const key = dayId+'-'+itemId;
+  const card = document.querySelector(`[data-key="${key}"]`);
+  if(!card) return;
+  const state = getSlotState(it, dayId);
+  card.className = 'tl-card ' + state + (state==='done'?'-card':'');
+  card.style.setProperty('--c', CAT[it.cat].color);
+
+  // Update dot
+  const dot = card.closest('.tl-item')?.querySelector('.tl-dot');
+  if(dot) dot.className = 'tl-dot';
+
+  // Update status badge
+  const sb = card.querySelector('.status-badge');
+  if(sb){
+    const {cls, txt} = getStatusBadge(state, it, dayId);
+    sb.className = 'status-badge ' + cls;
+    sb.innerHTML = txt;
+  }
+
+  // Update locked overlay
+  const lo = card.querySelector('.locked-overlay');
+  if(lo){
+    if(state==='locked'){
+      lo.classList.remove('hidden');
+      const lcd = lo.querySelector('.lo-cd');
+      if(lcd){
+        const nm = nowMins();
+        const start = toMins(it.startH, it.startM||0);
+        lcd.textContent = fmtCountdown(start - nm);
+      }
+    } else {
+      lo.classList.add('hidden');
+    }
+  }
+
+  // Update check button
+  const chkBtn = card.querySelector('.chk');
+  if(chkBtn){
+    if(state==='locked'){
+      chkBtn.disabled = true;
+      chkBtn.classList.add('locked-btn');
+    } else {
+      chkBtn.disabled = false;
+      chkBtn.classList.remove('locked-btn');
+    }
+  }
+
+  // Update timer buttons
+  const startBtn = card.querySelector('.tb-go, .tb-stop');
+  if(startBtn && state==='locked') startBtn.disabled = true;
+  else if(startBtn) startBtn.disabled = false;
+}
+
+// Update all card states in day view
+function updateAllCardStates(dayId){
+  const d = DAYS.find(x=>x.id===dayId);
+  d.items.forEach(it => updateSlotCardState(dayId, it.id));
+  // Update countdowns for locked items
+  d.items.forEach(it=>{
+    const key = dayId+'-'+it.id;
+    const state = getSlotState(it, dayId);
+    const card = document.querySelector(`[data-key="${key}"]`);
+    if(!card) return;
+    if(state==='locked' && it.startH !== undefined){
+      const nm = nowMins();
+      const start = toMins(it.startH, it.startM||0);
+      const diff = start - nm;
+      const lo = card.querySelector('.lo-cd');
+      if(lo) lo.textContent = fmtCountdown(diff);
+      const sb = card.querySelector('.status-badge');
+      if(sb && sb.classList.contains('sb-locked')){
+        sb.innerHTML = `🔒 MỞ LÚC ${String(it.startH).padStart(2,'0')}:${String(it.startM||0).padStart(2,'0')} · ${fmtCountdown(diff)}`;
+      }
+    }
+    if(state==='upcoming'){
+      const nm = nowMins();
+      const start = toMins(it.startH, it.startM||0);
+      const sb = card.querySelector('.status-badge');
+      if(sb) sb.innerHTML = `⏰ SẮP MỞ · ${fmtCountdown(start-nm)}`;
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+//  HOME UPDATE
+// ═══════════════════════════════════════════════════════
+function updateAll(){
+  updateClock();
+  updateNextUnlock();
+  checkNewUnlocks();
+  updateHome();
+  if(document.getElementById('page-day').classList.contains('active') && S.curDay){
+    updateAllCardStates(S.curDay);
+    updateDayProg(DAYS.find(d=>d.id===S.curDay));
+  }
+}
+
+function updateHome(){
+  const tp=totPts(), tm=totMax();
+  const pct=tm?Math.round((tp/tm)*100):0;
+  const r=getRank(pct);
+  document.getElementById('h-pts').textContent=tp;
+  document.getElementById('h-pts2').textContent=tp;
+  document.getElementById('h-max').textContent=tm;
+  document.getElementById('h-prog').style.width=pct+'%';
+  document.getElementById('h-pct').textContent=pct+'%';
+  document.getElementById('h-ri').textContent=r.i;
+  document.getElementById('h-rl').textContent=r.l;
+
+  // Count active, done, missed for today
+  const todayId = todayDayId();
+  const today = DAYS.find(d=>d.id===todayId);
+  let activeC=0, doneC=0, missedC=0;
+  if(today) today.items.forEach(it=>{
+    const st = getSlotState(it, todayId);
+    if(st==='active') activeC++;
+    else if(st==='done') doneC++;
+    else if(st==='missed') missedC++;
+  });
+  document.getElementById('h-active-count').textContent = activeC;
+  document.getElementById('h-done-count').textContent = doneC;
+  document.getElementById('h-missed-count').textContent = missedC;
+
+  // Day badge
+  const db = document.getElementById('h-daybadge');
+  if(today){ db.textContent=today.full.toUpperCase(); db.style.color=today.color; db.style.borderColor=today.color+'44'; db.style.background=today.color+'11'; }
+
+  renderDayGrid();
+}
+
+function renderDayGrid(){
+  const g=document.getElementById('day-grid');g.innerHTML='';
+  const todayId = todayDayId();
+  DAYS.forEach((d,i)=>{
+    const items=S.homeTab==='all'?d.items:d.items.filter(it=>it.cat===S.homeTab);
+    const pts=items.reduce((s,it)=>(S.checks[d.id]||{})[it.id]?s+it.pts:s,0);
+    const max=items.reduce((s,it)=>s+it.pts,0);
+    const done=items.filter(it=>(S.checks[d.id]||{})[it.id]).length;
+    const full=items.length>0&&done===items.length;
+    const pct=max?Math.round((pts/max)*100):0;
+    const isToday = d.id === todayId;
+    const btn=document.createElement('div');
+    btn.className='dc'+(full?' done':'')+(isToday?' today-active':'');
+    btn.style.setProperty('--c',d.color);
+    btn.style.animationDelay=(i*.06)+'s';
+    btn.innerHTML=`
+      <div class="dc-lbl" style="color:${d.color}">${d.label}</div>
+      <div class="dc-focus">${d.focus}</div>
+      <div class="dc-pb"><div class="dc-pf" style="width:${pct}%;background:${d.color}"></div></div>
+      <div class="dc-info">
+        <span style="color:${d.color}99;font-family:var(--font-t);font-size:.44rem">${done}/${items.length}✓</span>
+        <span style="color:#f59e0b;font-family:var(--font-t);font-size:.5rem">${pts}/${max}pts</span>
+      </div>`;
+    if(isToday){
+      const nm=nowMins();
+      const activeNow = d.items.filter(it=>!((S.checks[d.id]||{})[it.id]) && it.startH!==undefined && nm>=toMins(it.startH,it.startM||0) && nm<toMins(it.endH,it.endM||0)).length;
+      if(activeNow>0){
+        const badge=document.createElement('div');
+        badge.style.cssText='font-family:var(--font-t);font-size:.4rem;color:var(--neon);margin-top:4px;letter-spacing:.08em';
+        badge.textContent='▶ '+activeNow+' BÀI ĐANG MỞ';
+        btn.appendChild(badge);
+      }
+    }
+    btn.onclick=e=>{ripple(e);goDay(d.id)};
+    g.appendChild(btn);
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+//  DAY PAGE
+// ═══════════════════════════════════════════════════════
+function renderDayPage(id){
+  const d=DAYS.find(x=>x.id===id);
+  document.getElementById('d-em').textContent=d.emoji;
+  const ttl=document.getElementById('d-ttl');
+  ttl.textContent=d.full.toUpperCase();ttl.style.color=d.color;
+  const ft=document.getElementById('d-ftag');
+  ft.textContent=d.focus;ft.style.color=d.color;ft.style.borderColor=d.color+'55';ft.style.background=d.color+'11';
+  document.getElementById('d-pf').style.background=d.color;
+  updateDayProg(d);
+  renderItemList(d);
+}
+
+function updateDayProg(d){
+  const c=S.checks[d.id]||{};
+  const pts=dayPts(d),max=dayMax(d);
+  const done=d.items.filter(i=>c[i.id]).length;
+  const pct=max?Math.round((pts/max)*100):0;
+  document.getElementById('d-pf').style.width=pct+'%';
+  document.getElementById('d-done').textContent=`${done}/${d.items.length} mục`;
+  document.getElementById('d-pts').textContent=`${pts}/${max} pts`;
+  const b=document.getElementById('cpl-banner');
+  if(done===d.items.length&&done>0){if(!b.classList.contains('show')){b.classList.add('show');launchConfetti()}}
+  else b.classList.remove('show');
+}
+
+// Get status badge info
+function getStatusBadge(state, it, dayId){
+  const nm = nowMins();
+  if(state==='done')     return {cls:'sb-done',    txt:'✓ HOÀN THÀNH'};
+  if(state==='missed')   return {cls:'sb-missed',  txt:'✗ ĐÃ BỎ LỠ'};
+  if(state==='active')   return {cls:'sb-active',  txt:'▶ ĐANG MỞ — BẮT ĐẦU NGAY!'};
+  if(state==='upcoming'){
+    const start = toMins(it.startH, it.startM||0);
+    return {cls:'sb-upcoming', txt:`⏰ SẮP MỞ · ${fmtCountdown(start-nm)}`};
+  }
+  // locked
+  if(it.startH===undefined) return {cls:'sb-active', txt:'▶ LUÔN MỞ'};
+  const start = toMins(it.startH, it.startM||0);
+  return {cls:'sb-locked', txt:`🔒 MỞ LÚC ${String(it.startH).padStart(2,'0')}:${String(it.startM||0).padStart(2,'0')} · ${fmtCountdown(start-nm)}`};
+}
+
+function renderItemList(d){
+  const container=document.getElementById('item-list');container.innerHTML='';
+  const cats = S.dayTab==='all'
+    ?[{key:'gym',label:'LỊCH TẬP GYM'},{key:'study',label:'HỌC TẬP'},{key:'skin',label:'SKINCARE & LOOKSMAXX'}]
+    :[{key:S.dayTab,label:CAT[S.dayTab]?.label||''}];
+
+  cats.forEach(catObj=>{
+    const items=d.items.filter(it=>it.cat===catObj.key);
+    if(!items.length)return;
+    const c=CAT[catObj.key];
+    // Section header with timeline label
+    const sh=document.createElement('div');sh.className='sec-head';
+    sh.innerHTML=`<div class="sec-line"></div>
+      <div class="sec-lbl" style="color:${c.color};background:${c.color}11;border:1px solid ${c.color}33">${c.icon} ${catObj.label}</div>
+      <div class="sec-line"></div>`;
+    container.appendChild(sh);
+
+    // Timeline list
+    const list=document.createElement('div');list.className='item-list';
+    items.forEach((it,i)=>{
+      const key=`${d.id}-${it.id}`;
+      if(!S.timers[key])S.timers[key]={secs:0,interval:null,running:false};
+      const checked=(S.checks[d.id]||{})[it.id];
+      const state = getSlotState(it, d.id);
+      const isLocked = state==='locked';
+      const nm = nowMins();
+
+      // Time label
+      const timeLabel = it.startH!==undefined
+        ? `${String(it.startH).padStart(2,'0')}:${String(it.startM||0).padStart(2,'0')}–${String(it.endH).padStart(2,'0')}:${String(it.endM||0).padStart(2,'0')}`
+        : 'LINH HOẠT';
+
+      const {cls: sbCls, txt: sbTxt} = getStatusBadge(state, it, d.id);
+      const lockOverlay = isLocked
+        ? `<div class="locked-overlay">
+            <div class="lo-icon">🔒</div>
+            <div class="lo-time">${timeLabel}</div>
+            <div class="lo-cd">${it.startH!==undefined ? fmtCountdown(toMins(it.startH,it.startM||0)-nm) : ''}</div>
+           </div>`
+        : `<div class="locked-overlay hidden"></div>`;
+
+      const tl=document.createElement('div');tl.className='tl-item';tl.style.animationDelay=(i*.07)+'s';
+      tl.innerHTML=`
+        <div class="tl-spine">
+          <div class="tl-time">${timeLabel.replace('–','<br>')}</div>
+          <div class="tl-dot" style="border-color:${c.color};background:${state==='active'||state==='done'?c.color:'transparent'}"></div>
+          <div class="tl-tail"></div>
+        </div>
+        <div class="tl-card ${state}${state==='done'?'-card':''}" data-key="${key}" style="--c:${c.color}">
+          ${lockOverlay}
+          <div class="tl-body">
+            <div class="ic-top">
+              <div class="ic-left">
+                <div class="ic-name${checked?' dn':''}">
+                  ${it.name}
+                  ${it.sets?`<span class="tag t-type">${it.sets}</span>`:''}
+                  ${it.dur?`<span class="tag t-dur">${it.dur}</span>`:''}
+                  <span class="tag t-pts">+${it.pts}pts</span>
+                </div>
+                <div class="ic-tip"><b>💡</b> ${it.tip}</div>
+                <div class="status-badge ${sbCls}">${sbTxt}</div>
+              </div>
+              <button class="chk${checked?' on':''}${isLocked?' locked-btn':''}" id="chk-${key}" 
+                ${isLocked?'disabled':''} onclick="toggleCheck('${d.id}','${it.id}',this)">
+                <span class="chk-ico">✓</span>
+              </button>
+            </div>
+          </div>
+          <div class="tm-row">
+            <div class="tm-disp${S.timers[key].running?' run':''}" id="td-${key}">${fmtT(S.timers[key].secs)}</div>
+            <button class="tm-btn ${S.timers[key].running?'tb-stop':'tb-go'}" id="tb-${key}" 
+              ${isLocked?'disabled':''} onclick="toggleTimer('${key}',this)">
+              ${S.timers[key].running?'⏸ DỪNG':'▶ START'}
+            </button>
+            <button class="tm-btn tb-rst" onclick="resetTimer('${key}')">↺</button>
+            <a class="yt-a" href="${it.yt}" target="_blank" rel="noreferrer">▶ YT</a>
+          </div>
+        </div>`;
+      list.appendChild(tl);
+    });
+    container.appendChild(list);
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+//  CHECK
+// ═══════════════════════════════════════════════════════
+function toggleCheck(dayId,itId,btn){
+  if(!S.checks[dayId])S.checks[dayId]={};
+  S.checks[dayId][itId]=!S.checks[dayId][itId];
+  const on=S.checks[dayId][itId];
+  const key=`${dayId}-${itId}`;
+  btn.classList.toggle('on',on);
+  const card=document.querySelector(`[data-key="${key}"]`);
+  if(card){
+    if(on){card.classList.add('done-card');card.classList.remove('active','upcoming','missed','locked')}
+    else{
+      const state=getSlotState(DAYS.find(d=>d.id===dayId).items.find(i=>i.id===itId),dayId);
+      card.className=`tl-card ${state}${state==='done'?'-card':''}`;
+      card.style.setProperty('--c',CAT[DAYS.find(d=>d.id===dayId).items.find(i=>i.id===itId).cat].color);
+    }
+    const nm=card.querySelector('.ic-name');if(nm)nm.classList.toggle('dn',on);
+    const sb=card.querySelector('.status-badge');
+    if(sb){
+      const it=DAYS.find(d=>d.id===dayId).items.find(i=>i.id===itId);
+      const s=getSlotState(it,dayId);
+      const {cls,txt}=getStatusBadge(s,it,dayId);
+      sb.className='status-badge '+cls;sb.innerHTML=txt;
+    }
+  }
+  const d=DAYS.find(x=>x.id===dayId);
+  updateDayProg(d);updateHome();
+  if(on){
+    launchMiniConfetti(btn);
+    const it=d.items.find(i=>i.id===itId);
+    if(it)floatPts(btn,'+'+it.pts+'pts');
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  TIMERS
+// ═══════════════════════════════════════════════════════
+function toggleTimer(key,btn){
+  const t=S.timers[key];
+  if(t.running){
+    clearInterval(t.interval);t.running=false;
+    btn.textContent='▶ START';btn.className='tm-btn tb-go';
+    document.getElementById('td-'+key)?.classList.remove('run');
+  } else {
+    t.running=true;
+    t.interval=setInterval(()=>{
+      t.secs++;
+      const d=document.getElementById('td-'+key);
+      if(d)d.textContent=fmtT(t.secs);
+    },1000);
+    btn.textContent='⏸ DỪNG';btn.className='tm-btn tb-stop';
+    document.getElementById('td-'+key)?.classList.add('run');
+  }
+}
+function resetTimer(key){
+  const t=S.timers[key];
+  clearInterval(t.interval);t.running=false;t.secs=0;
+  const d=document.getElementById('td-'+key);const b=document.getElementById('tb-'+key);
+  if(d){d.textContent='00:00';d.classList.remove('run')}
+  if(b){b.textContent='▶ START';b.className='tm-btn tb-go'}
+}
+
+// ═══════════════════════════════════════════════════════
+//  SCORE
+// ═══════════════════════════════════════════════════════
+function renderScorePage(){
+  const tp=totPts(),tm=totMax();
+  const pct=tm?Math.round((tp/tm)*100):0;
+  const r=getRank(pct);
+  const fullDays=DAYS.filter(d=>d.items.every(i=>(S.checks[d.id]||{})[i.id])).length;
+  const totItems=DAYS.reduce((s,d)=>s+d.items.filter(i=>(S.checks[d.id]||{})[i.id]).length,0);
+  animCount('sc-tot',tp);
+  document.getElementById('sc-max').textContent=tm;
+  document.getElementById('sc-rank').textContent=r.i+' '+r.l;
+  document.getElementById('sc-pct').textContent=pct+'%';
+  document.getElementById('sc-days').textContent=fullDays+'/7';
+  document.getElementById('sc-items').textContent=totItems;
+  const rows=document.getElementById('sc-rows');rows.innerHTML='';
+  DAYS.forEach((d,i)=>{
+    const pts=dayPts(d),max=dayMax(d);
+    const p=max?Math.round((pts/max)*100):0;
+    const done=d.items.filter(it=>(S.checks[d.id]||{})[it.id]).length;
+    const el=document.createElement('div');el.className='sc-row';el.style.animationDelay=(i*.08)+'s';
+    el.innerHTML=`
+      <div class="sc-em" style="border-color:${d.color}44;background:${d.color}11">${d.emoji}</div>
+      <div class="sc-info">
+        <div class="sc-name" style="color:${d.color}">${d.full.toUpperCase()}</div>
+        <div class="sc-bar"><div class="sc-bf" style="width:0%;background:linear-gradient(90deg,${d.color},${d.color}88)" data-w="${p}"></div></div>
+        <div class="sc-det"><span>${done}/${d.items.length} mục ✓</span><span style="color:${d.color}">${p}%</span></div>
+      </div>
+      <div class="sc-pts" style="color:#f59e0b">${pts}<span style="font-size:.5rem;color:var(--muted)">/${max}</span></div>`;
+    rows.appendChild(el);
+  });
+  setTimeout(()=>document.querySelectorAll('.sc-bf').forEach(el=>el.style.width=el.dataset.w+'%'),200);
+}
+function animCount(id,target){
+  const el=document.getElementById(id);let cur=0;
+  const step=Math.max(1,Math.ceil(target/40));
+  const int=setInterval(()=>{cur=Math.min(cur+step,target);el.textContent=cur;if(cur>=target)clearInterval(int)},28);
+}
+
+// ═══════════════════════════════════════════════════════
+//  TOAST
+// ═══════════════════════════════════════════════════════
+let toastTimeout;
+function showToast(icon, title, msg){
+  const t=document.getElementById('toast');
+  document.getElementById('toast-icon').textContent=icon;
+  document.getElementById('toast-title').textContent=title;
+  document.getElementById('toast-msg').textContent=msg;
+  t.classList.add('show');
+  clearTimeout(toastTimeout);
+  toastTimeout=setTimeout(()=>t.classList.remove('show'),3500);
+}
+
+// ═══════════════════════════════════════════════════════
+//  EFFECTS
+// ═══════════════════════════════════════════════════════
+function launchConfetti(){
+  const cols=['#e8ff47','#00f5ff','#ff2d55','#00ff88','#bf5af2','#ff9500'];
+  for(let i=0;i<70;i++) setTimeout(()=>{
+    const c=document.createElement('div');c.className='confetti-p';
+    c.style.cssText=`left:${Math.random()*100}vw;top:-15px;width:${Math.random()*9+4}px;height:${Math.random()*9+4}px;
+      background:${cols[Math.floor(Math.random()*cols.length)]};border-radius:${Math.random()>.5?'50%':'2px'};animation-duration:${Math.random()*2+1}s`;
+    document.body.appendChild(c);setTimeout(()=>c.remove(),3000);
+  },i*25);
+}
+function launchMiniConfetti(el){
+  const r=el.getBoundingClientRect();
+  const cols=['#e8ff47','#00ff88','#00f5ff','#ff6b9d'];
+  for(let i=0;i<12;i++){
+    const c=document.createElement('div');c.className='confetti-p';
+    c.style.cssText=`left:${r.left+r.width/2}px;top:${r.top}px;width:5px;height:5px;border-radius:50%;
+      background:${cols[Math.floor(Math.random()*cols.length)]};animation-duration:${Math.random()*.7+.4}s`;
+    document.body.appendChild(c);setTimeout(()=>c.remove(),1200);
+  }
+}
+function floatPts(el,text){
+  const r=el.getBoundingClientRect();
+  const f=document.createElement('div');
+  f.textContent=text;
+  f.style.cssText=`position:fixed;left:${r.left-20}px;top:${r.top-10}px;font-family:var(--font-d);font-size:1.1rem;color:var(--neon);pointer-events:none;z-index:9999;text-shadow:0 0 8px var(--neon);animation:floatUp .9s ease forwards`;
+  document.body.appendChild(f);setTimeout(()=>f.remove(),900);
+}
+function ripple(e){
+  const r=document.createElement('div');r.className='ripple-el';
+  r.style.cssText=`left:${e.clientX}px;top:${e.clientY}px;width:180px;height:180px`;
+  document.body.appendChild(r);setTimeout(()=>r.remove(),550);
+}
+
+// ═══════════════════════════════════════════════════════
+//  PARTICLES
+// ═══════════════════════════════════════════════════════
+(()=>{
+  const cv=document.getElementById('ptc'),ct=cv.getContext('2d');
+  let W,H;const P=[];
+  const resize=()=>{W=cv.width=innerWidth;H=cv.height=innerHeight};
+  resize();addEventListener('resize',resize);
+  for(let i=0;i<50;i++) P.push({x:Math.random()*innerWidth,y:Math.random()*innerHeight,
+    vx:(Math.random()-.5)*.3,vy:(Math.random()-.5)*.3,r:Math.random()*1.5+.5,
+    col:['#e8ff4733','#00f5ff22','#ff6b9d1a','#bf5af21a'][Math.floor(Math.random()*4)]});
+  const draw=()=>{
+    ct.clearRect(0,0,W,H);
+    P.forEach(p=>{p.x+=p.vx;p.y+=p.vy;
+      if(p.x<0)p.x=W;if(p.x>W)p.x=0;if(p.y<0)p.y=H;if(p.y>H)p.y=0;
+      ct.beginPath();ct.arc(p.x,p.y,p.r,0,Math.PI*2);ct.fillStyle=p.col;ct.fill()});
+    for(let i=0;i<P.length;i++) for(let j=i+1;j<P.length;j++){
+      const dx=P[i].x-P[j].x,dy=P[i].y-P[j].y,d=Math.sqrt(dx*dx+dy*dy);
+      if(d<100){ct.beginPath();ct.moveTo(P[i].x,P[i].y);ct.lineTo(P[j].x,P[j].y);
+        ct.strokeStyle=`rgba(232,255,71,${.04*(1-d/100)})`;ct.lineWidth=.5;ct.stroke()}}
+    requestAnimationFrame(draw);
+  };draw();
+})();
+
+// ═══════════════════════════════════════════════════════
+//  CURSOR
+// ═══════════════════════════════════════════════════════
+(()=>{
+  const c=document.getElementById('cur'),c2=document.getElementById('cur2');
+  let mx=0,my=0,tx=0,ty=0;
+  document.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY;c.style.left=mx+'px';c.style.top=my+'px'});
+  const lerp=(a,b,t)=>a+(b-a)*t;
+  const loop=()=>{tx=lerp(tx,mx,.11);ty=lerp(ty,my,.11);c2.style.left=tx+'px';c2.style.top=ty+'px';requestAnimationFrame(loop)};loop();
+  document.addEventListener('mousedown',()=>{c.style.width='18px';c.style.height='18px'});
+  document.addEventListener('mouseup',()=>{c.style.width='10px';c.style.height='10px'});
+})();
+
+// ═══════════════════════════════════════════════════════
+//  INIT + TICK EVERY 30s
+// ═══════════════════════════════════════════════════════
+initUnlockState();
+updateAll();
+setInterval(updateAll, 30000);   // update states every 30s
+setInterval(updateClock, 1000);  // clock every 1s
+setInterval(updateNextUnlock, 10000); // next unlock every 10s
+</script>
+</body>
+</html>
